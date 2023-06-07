@@ -1,0 +1,7 @@
+
+task test_script  {
+	doLast {
+
+        println "Helloworld"
+    }
+}

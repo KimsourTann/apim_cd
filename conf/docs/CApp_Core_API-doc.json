@@ -1,0 +1,9 @@
+{
+    "visibility": "API_LEVEL",
+    "sourceType": "FILE",
+    "sourceUrl": null,
+    "otherTypeName": null,
+    "summary": "This document provides a detailed guideline to access the CApp API",
+    "name": "Introduction to CApp API",
+    "type": "HOWTO"
+}

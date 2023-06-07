@@ -1,0 +1,65 @@
+	{
+	   "name": "CApp_Core_API",
+	   "description": "This API Provides CApp Services.\r\n",
+	   "context": "/cappcore",
+	   "version": "v1",
+	   "provider": "admin",
+	   "apiDefinition": "{\"openapi\":\"3.0.0\",\"paths\":{\"/*\":{\"post\":{\"requestBody\":{\"description\":\"Request Body\",\"content\":{\"application/json\":{\"schema\":{\"type\":\"object\",\"properties\":{\"payload\":{\"type\":\"string\"}}}}},\"required\":true},\"x-auth-type\":\"Application & Application User\",\"x-scope\":\"\",\"responses\":{\"200\":{\"description\":\"\"}},\"x-throttling-tier\":\"Unlimited\",\"security\":[{\"default\":[\"\"]}]}}},\"x-wso2-security\":{\"apim\":{\"x-wso2-scopes\":[]}},\"info\":{\"description\":\"CApp core API\",\"title\":\"CApp_Core_API\",\"version\":\"v1\"},\"servers\":[{\"url\":\"https://stg-api.cellcard.com.kh:8243/cappcore/v1\"},{\"url\":\"http://stg-api.cellcard.com.kh:8243/cappcore/v1\"}],\"components\":{\"securitySchemes\":{\"default\":{\"type\":\"oauth2\",\"flows\":{\"implicit\":{\"authorizationUrl\":\"https://stg-api.cellcard.com.kh:8243/authorize\",\"scopes\":{}}}}}}}",
+	   "wsdlUri": null,
+	   "status": "CREATED",
+	   "responseCaching": "Disabled",
+	   "cacheTimeout": 300,
+	   "destinationStatsEnabled": false,
+	   "isDefaultVersion": true,
+	   "type": "HTTP",
+	   "transport":    [
+	      "https"
+	   ],
+	   "tags": ["CApp","cellcard"],
+	   "tiers": ["Bronze","Gold","Silver","SubPol_VASApp_Sys","SubPol_Mitra_Users"],
+	   "maxTps":    {
+	      "sandbox": 1000,
+	      "production": 2800
+	   },
+	   "visibility": "RESTRICTED",
+	   "visibleRoles": ["admin"],	   
+	   "accessControl" : "RESTRICTED",
+           "accessControlRoles" : ["admin"],
+	   "endpointConfig": "{\"production_endpoints\":{\"url\":\"https://api4.cellcard.com.kh:8244/services/v1/CApp\",\"config\":null},\"sandbox_endpoints\":{\"url\":\"https://api4.cellcard.com.kh:8244/services/v1/CApp\",\"config\":null},\"endpoint_type\":\"http\"}",
+	   "endpointSecurity":    {
+	      "username": "Mitra",
+	      "type": "basic",
+	      "password": "alias_endpoint_password"
+	   },
+	   "gatewayEnvironments": "APIG-1 Production and Sandbox,APIG-2 Production and Sandbox",
+	   "sequences": [{"name":"admin--CApp_Core_API:vv1--In","type": "in"},{"name":"json_fault_with_log","type": "fault"}],
+	   "subscriptionAvailability": null,
+	   "subscriptionAvailableTenants": [],
+	   "businessInformation":    {
+	      "businessOwnerEmail": "chanthearith@cellcard.com.kh",
+	      "technicalOwnerEmail": "daro.oem@cellcard.com.kh",
+	      "technicalOwner": "Daro Oem",
+	      "businessOwner": "Chanthearith Tech"
+	   },
+	   "corsConfiguration":    {
+	      "accessControlAllowOrigins": ["*"],
+	      "accessControlAllowHeaders":       [
+		 "authorization",
+		 "Access-Control-Allow-Origin",
+		 "Content-Type",
+		 "SOAPAction"
+	      ],
+	      "accessControlAllowMethods":       [
+		 "GET",
+		 "PUT",
+		 "POST",
+		 "DELETE",
+		 "PATCH",
+		 "OPTIONS"
+	      ],
+	      "accessControlAllowCredentials": false,
+	      "corsConfigurationEnabled": false
+	   }
+	}
+
+

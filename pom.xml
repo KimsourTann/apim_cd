@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>	
+  <groupId>kh.com.cellcard</groupId>
+  <artifactId>ApimCAppApi</artifactId>
+  <version>1.0.3-SNAPSHOT</version>
+  <packaging>pom</packaging>
+  <name>ApimCAppApi</name>
+  <description>ApimCAppApi</description>
+  <scm>
+    <connection>scm:git:http://${env.BITBUCKET_USERNAME}:${env.BITBUCKET_PASSWORD}@bitbucket.org/cellcardvasdev/apim_capp_api.git</connection>
+    <url>http://${env.BITBUCKET_USERNAME}@bitbucket.org/cellcardvasdev/apim_capp_api.git</url>
+	<tag>HEAD</tag>
+  </scm>
+  <modules>
+    <module>ApimCAppApiRegistry</module>
+    <module>ApimCAppApiCapp</module>
+  </modules>
+  <build>
+    <plugins>
+      <plugin>
+        <artifactId>maven-eclipse-plugin</artifactId>
+        <version>2.9</version>
+        <configuration>
+          <buildcommands />
+          <projectnatures>
+            <projectnature>org.wso2.developerstudio.eclipse.mavenmultimodule.project.nature</projectnature>
+          </projectnatures>
+        </configuration>
+      </plugin>
+	  <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-release-plugin</artifactId>
+        <version>2.5.2</version>
+        <configuration>
+          <goals>pre-integration-test</goals>
+          <preparationGoals>package</preparationGoals>
+          <allowTimestampedSnapshots>true</allowTimestampedSnapshots>
+          <tagNameFormat>@{project.version}</tagNameFormat>
+          <remoteTagging>false</remoteTagging>
+        </configuration>
+      </plugin>
+    </plugins>
+  </build>
+</project>

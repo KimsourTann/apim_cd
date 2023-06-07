@@ -1,0 +1,243 @@
+import groovy.json.JsonSlurper
+
+
+task deployApi  {
+	doLast {
+		println "Start deploying API"
+		loadEnvProperties()
+		loadApiProperties()
+
+
+		def clientRegistrationResponse=registerClient()
+
+		if(clientRegistrationResponse.code || clientRegistrationResponse.error) {
+			println "Error occurred when registering the client. Error code: " + clientRegistrationResponse.code + ", Error message:" + clientRegistrationResponse.message
+		} else {
+			def getTokenResponse=generateToken(clientRegistrationResponse)
+			if(getTokenResponse.code || getTokenResponse.error) {
+			    println "Error occurred when generating the token. Error code: " + getTokenResponse.code + ", Error message:" + getTokenResponse.error_description
+			} else {
+			    def accessToken= getTokenResponse.access_token	
+			    def apiId = ""			
+			    def createAPIResponse=createAPI(accessToken)
+			    if(createAPIResponse.code || createAPIResponse.error) {
+				println "Error occurred when creating the API. Error code: " + createAPIResponse.code + ", Error message:" + createAPIResponse.message
+				 if(createAPIResponse.code == 409) {
+					println "API Create Error... Trying with updating"	
+					    def updateAPIResponse=updateAPI(targetApiProvider+"-"+targetApiName+"-"+targetApiVersion, accessToken)
+					    if(updateAPIResponse.code || updateAPIResponse.error) {
+						println "Error occurred when updating the API. Error code: " + updateAPIResponse.code + ", Error message:" + updateAPIResponse.message
+						throw new GradleException("Error occurred when updating the API. Error code: " + updateAPIResponse.code + ", Error message:" + updateAPIResponse.message)
+					    } else {
+						apiId = updateAPIResponse.id							
+					    }
+				 }
+			    } else {
+				apiId = createAPIResponse.id
+			    }
+
+			    def publishAPIResponse=publishAPI(apiId, accessToken)
+	
+			    def updateImageResponse=updateImage(apiId, accessToken, targetApiName)	
+
+			    def insertDocResponse=insertDocument(apiId, accessToken, targetApiName)	
+
+			}
+		}
+	}	
+}
+    
+def registerClient() {
+    println "Registering the client with username: " + clientUserName
+    def registerClientHeaderMap = [:]
+    registerClientHeaderMap['clientId'] = clientUserName 
+    registerClientHeaderMap['clientSecret'] = clientPassword
+    registerClientHeaderMap['contentType']='application/json'
+    return executeCurl("POST", clientRegistrationWebAppEndpoint+"/register", registerClientHeaderMap, "{\"callbackUrl\": \"www.google.lk\",\"clientName\": \"rest_api_publisher\",\"owner\": \"" + 		clientUserName +"\",\"grantType\": \"password refresh_token\", \"saasApp\": true}")
+}
+
+def generateToken(clientRegistrationResponse) {
+   println "Genrating the token with client id: " + clientRegistrationResponse.clientId
+   def getTokenAPIHeaderMap = [:]
+   getTokenAPIHeaderMap['clientId'] = clientRegistrationResponse.clientId
+   getTokenAPIHeaderMap['clientSecret'] = clientRegistrationResponse.clientSecret
+   
+   return executeCurl("POST", tokenEndpoint, getTokenAPIHeaderMap, "grant_type=password&username=" + clientUserName + "&password=" + clientPassword + "&scope=apim:api_view apim:api_create apim:api_publish") 
+}
+
+def createAPI(accessToken) {
+    println "Creating API with API name: " + targetApiName
+    def createAPIHeaderMap = [:]
+    createAPIHeaderMap['AccessToken'] = accessToken
+    createAPIHeaderMap['contentType']='application/json'
+
+    def jsonFile = file('conf/api/'+environment+'/api.json')
+    String apiDefinition = jsonFile.text.replace('\t', '').replace('\n', '').replace('&', '%26').replace('alias_endpoint_password',project.ext['endpointPwd'])
+    
+    return executeCurl("POST", publisherWebAppEndpoint+"/apis", createAPIHeaderMap, apiDefinition)
+}
+
+def publishAPI(apiId, accessToken) {
+    println "Publishing API with API name: " + targetApiName
+    def appPublishUrl=publisherWebAppEndpoint+"/apis/change-lifecycle?apiId="+apiId+"&action=Publish"
+    def publishAPIHeaderMap = [:]
+    publishAPIHeaderMap['AccessToken'] = accessToken
+    return executeCurl("POST", appPublishUrl, publishAPIHeaderMap, null)
+}
+
+def executeCurl(action, url, headersMap, body) {
+    def clientId= headersMap.clientId   
+    def clientSecret=headersMap.clientSecret
+    def clientUserNamePassword=clientId+":"+clientSecret
+    
+    def arguments = ['-v', '-k', '-s', '-X', action, url]
+    if (headersMap.clientId) {
+        arguments << '-u' << clientUserNamePassword
+    }
+    
+    if (headersMap.AccessToken) {
+        arguments << '-H' << "Authorization:Bearer " + headersMap.AccessToken
+    }
+    
+    if (headersMap.contentType) {
+        arguments << '-H' << "Content-Type:" + headersMap.contentType
+    }
+
+   if (headersMap.File) {
+        arguments << '-F' << "file=@" + headersMap.File
+    }
+
+    arguments << '-H' << "Expect: "
+    
+    if (body) {
+        arguments << '-d' << body
+    }
+    
+    def response
+    
+    new ByteArrayOutputStream().withStream { os -> def result = exec {
+        executable = "curl"
+        args = arguments
+        standardOutput = os
+    }
+    def responseString = os.toString()
+       if (responseString) {
+           response = new JsonSlurper().parseText(responseString)
+           return response
+       }
+       return null
+    }
+}
+
+def loadEnvProperties() {
+	println "Loading environment properties"
+
+        Properties props = new Properties()
+	project.ext.environment = System.getenv('ENVIRONMENT')
+	def apiConfigFile = 'conf/api/' + environment + '/api.properties'
+
+	File propsFile = new File(apiConfigFile)
+	props.load(propsFile.newDataInputStream())
+	project.ext['clientUserName'] = System.getenv('APIM_USER_' + project.ext.environment.toUpperCase())
+	project.ext['clientPassword'] = System.getenv('APIM_PWD_' + project.ext.environment.toUpperCase())
+	project.ext['apimHost'] = System.getenv("APIM_PUBLISHER_EP_" + project.ext.environment.toUpperCase())
+	project.ext['clientRegistrationWebAppEndpoint'] = getClientRegistrationWebAppEndpoint(props.getProperty('clientRegistrationWebAppVersion'))
+	project.ext['publisherWebAppEndpoint'] = getPublisherWebAppEndpoint(props.getProperty('publisherWebAppVersion'))
+	project.ext['tokenEndpoint'] =  getTokenEndpoint(System.getenv("APIM_TOKEN_EP_" + project.ext.environment.toUpperCase()))
+	project.ext['endpointPwd'] = new String(props.getProperty('endpointPassword').decodeBase64())
+}
+
+def loadApiProperties(){
+	println "Loading API specific properties"
+	def slurper = new JsonSlurper()
+    	def jsonFile = file('conf/api/'+environment+'/api.json')
+    	def jsonObj = slurper.parse(jsonFile)
+	project.ext.targetApiName = jsonObj.name
+        project.ext.targetApiVersion = jsonObj.version
+	project.ext.targetApiProvider = jsonObj.provider
+}
+
+def getProp(String key){
+    if (project.has(key))
+        return project.ext.get(key)
+    return ""
+}
+
+def getClientRegistrationWebAppEndpoint(clientRegistrationWebAppVersion) {
+	return apimHost + "/client-registration/" + clientRegistrationWebAppVersion
+}
+
+def getPublisherWebAppEndpoint(publisherWebAppVersion) {
+	return apimHost + "/api/am/publisher/" + publisherWebAppVersion
+}
+
+def getTokenEndpoint(apimTokenHost) {
+	return apimTokenHost + "/token"
+}
+
+def updateAPI(apiId,accessToken) {
+    println "Updating "+targetApiName+" API"
+    def createAPIHeaderMap = [:]
+    createAPIHeaderMap['AccessToken'] = accessToken
+    createAPIHeaderMap['contentType']='application/json'
+
+    def jsonFile = file('conf/api/'+environment+'/api.json')
+    String apiDefinition = jsonFile.text.replace('\t', '').replace('\n', '').replace('&', '%26').replace('alias_endpoint_password',project.ext['endpointPwd'])
+
+    return executeCurl("PUT", publisherWebAppEndpoint+"/apis/"+apiId, createAPIHeaderMap, apiDefinition)
+
+}
+
+def updateImage(apiId, accessToken, targetApiName) {
+    println "Updating "+targetApiName+" API Thumbnail"
+    def updateImageHeaderMap = [:]
+    updateImageHeaderMap['AccessToken'] = accessToken
+    updateImageHeaderMap['File'] = "./conf/images/" + targetApiName + "-thumb.png"
+    
+    return executeCurl("POST", publisherWebAppEndpoint + "/apis/" + apiId + "/thumbnail", updateImageHeaderMap, null)
+
+}
+
+def insertDocument(apiId, accessToken, targetApiName){
+    println "Creating  Document for  "+ targetApiName
+    def insertDocHeaderMap = [:]
+    insertDocHeaderMap['AccessToken'] = accessToken
+    insertDocHeaderMap['contentType']='application/json'
+
+    def slurper = new JsonSlurper()
+    def jsonFile = file('conf/docs/'+targetApiName+'-doc.json')
+    String requestJson = jsonFile.text.replace('\t', '').replace('\n', '').replace('&', '%26')
+    
+    def insertDocResponse = executeCurl("POST", publisherWebAppEndpoint + "/apis/" + apiId + "/documents", insertDocHeaderMap, requestJson)
+    def documentId = ""
+
+    if(insertDocResponse.code == 409) {
+	println "Inserting Document for "+targetApiName+" Failed, trying to get existing document ID"
+   	    def getDocHeaderMap = [:]
+    	getDocHeaderMap['AccessToken'] = accessToken
+	def getDocResponse = executeCurl("GET", publisherWebAppEndpoint + "/apis/" + apiId + "/documents", getDocHeaderMap, null)
+
+        documentId = getDocResponse.list[0].documentId
+   } else {
+
+ 	documentId = insertDocResponse.documentId
+   }
+
+println "Uploading  Document for "+targetApiName
+
+    def uploadContentHeaderMap = [:]
+    uploadContentHeaderMap['AccessToken'] = accessToken
+    uploadContentHeaderMap['File'] = "./conf/docs/"+targetApiName+"-doc.pdf"
+    
+     return executeCurl("POST", publisherWebAppEndpoint + "/apis/" + apiId + "/documents/" +  documentId + "/content", uploadContentHeaderMap, null)
+
+}
+
+def getProjectProperty(property, defaultPropertyValue) {
+    if (project.hasProperty(property)) {
+        return project.getProperty(property)
+    } else {
+        return defaultPropertyValue
+    }
+}
+
